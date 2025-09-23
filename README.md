@@ -17,6 +17,34 @@ Un sistema completo para la gestión de computadoras en laboratorios escolares, 
 - **Paginación** optimizada
 - **Auditoría** de cambios
 
+### 📅 Sistema de Reservas
+- **Reservas inteligentes** con validación de horarios
+- **Gestión de conflictos** automática
+- **Estados**: Activa, Completada, Cancelada
+- **Verificación de disponibilidad** en tiempo real
+- **Duración limitada** y validaciones avanzadas
+
+### 👥 Gestión de Usuarios
+- **CRUD completo** de usuarios
+- **Roles**: Admin, Profesor, Estudiante
+- **Cambio de contraseñas** seguro
+- **Estadísticas** de usuarios
+- **Permisos granulares** por rol
+
+### 📊 Reportes y Estadísticas
+- **Dashboard en tiempo real**
+- **Reportes de uso** de computadoras
+- **Análisis de reservas** y usuarios
+- **Estadísticas por períodos**
+- **Exportación de datos**
+
+### ⚙️ Configuración del Sistema
+- **Configuraciones dinámicas**
+- **Modo de mantenimiento**
+- **Logs de auditoría**
+- **Gestión de perfiles**
+- **Configuraciones de seguridad**
+
 ### 🎨 Interfaz Moderna
 - **Diseño responsive** con Tailwind CSS
 - **Componentes reutilizables**
@@ -27,9 +55,11 @@ Un sistema completo para la gestión de computadoras en laboratorios escolares, 
 ### 🚀 Backend Optimizado
 - **Pool de conexiones** PostgreSQL
 - **Rate limiting** para seguridad
-- **Logging** de operaciones
+- **Logging** de operaciones y auditoría
 - **Manejo de errores** robusto
-- **Validación** de entrada
+- **Validación** de entrada y sanitización
+- **Sistema de auditoría** completo
+- **Middleware de seguridad** avanzado
 
 ## 🛠️ Tecnologías
 
@@ -207,37 +237,83 @@ schoolSystem/
 - `PATCH /api/computers/:id/status` - Actualizar estado
 - `DELETE /api/computers/:id` - Eliminar computadora (Admin)
 
+### Reservas
+- `GET /api/reservations` - Listar reservas (con filtros)
+- `GET /api/reservations/:id` - Obtener reserva específica
+- `POST /api/reservations` - Crear reserva
+- `PATCH /api/reservations/:id/status` - Actualizar estado de reserva
+- `DELETE /api/reservations/:id` - Eliminar reserva (Admin)
+- `GET /api/reservations/computers/:id/availability` - Ver disponibilidad
+
+### Usuarios
+- `GET /api/users` - Listar usuarios (Admin)
+- `GET /api/users/:id` - Obtener usuario específico
+- `POST /api/users` - Crear usuario (Admin)
+- `PUT /api/users/:id` - Actualizar usuario
+- `PATCH /api/users/:id/password` - Cambiar contraseña
+- `DELETE /api/users/:id` - Eliminar usuario (Admin)
+- `GET /api/users/stats/overview` - Estadísticas de usuarios
+
+### Reportes
+- `GET /api/reports/computers` - Reporte de computadoras
+- `GET /api/reports/reservations` - Reporte de reservas
+- `GET /api/reports/users` - Reporte de usuarios (Admin)
+- `GET /api/reports/dashboard` - Dashboard en tiempo real
+- `GET /api/reports/export/:type` - Exportar datos
+
+### Configuración
+- `GET /api/settings` - Obtener configuraciones (Admin)
+- `PUT /api/settings/:key` - Actualizar configuración (Admin)
+- `PUT /api/settings` - Actualizar múltiples configuraciones (Admin)
+- `POST /api/settings` - Crear configuración (Admin)
+- `DELETE /api/settings/:key` - Eliminar configuración (Admin)
+- `GET /api/settings/audit-logs` - Logs de auditoría (Admin)
+- `GET /api/settings/system-stats` - Estadísticas del sistema (Admin)
+
 ## 🚀 Optimizaciones Implementadas
 
 ### Backend
 - ✅ **Pool de conexiones** PostgreSQL optimizado
 - ✅ **Rate limiting** para prevenir ataques
-- ✅ **Validación** de datos de entrada
+- ✅ **Validación** y sanitización de datos
 - ✅ **Manejo de errores** robusto
-- ✅ **Logging** de operaciones
-- ✅ **Middleware de seguridad** (Helmet)
+- ✅ **Logging** y auditoría completa
+- ✅ **Middleware de seguridad** (Helmet + custom)
 - ✅ **Autenticación JWT** con roles
 - ✅ **Paginación** en consultas
-- ✅ **Índices** en base de datos
+- ✅ **Índices** optimizados en base de datos
+- ✅ **Sistema de configuración** dinámico
+- ✅ **Detección de actividad** sospechosa
+- ✅ **API RESTful** completa y documentada
 
 ### Frontend
 - ✅ **Context API** para estado global
-- ✅ **Componentes reutilizables**
+- ✅ **Componentes reutilizables** y modulares
 - ✅ **Manejo de errores** con toast
 - ✅ **Loading states** optimizados
 - ✅ **Responsive design** completo
-- ✅ **Navegación** por roles
-- ✅ **Formularios** con validación
-- ✅ **Interceptores** de API
+- ✅ **Navegación** por roles y permisos
+- ✅ **Formularios** con validación avanzada
+- ✅ **Interceptores** de API inteligentes
+- ✅ **Interfaces completas** para todas las funcionalidades
+- ✅ **Dashboard** interactivo con estadísticas
+- ✅ **Sistema de reportes** visual
+- ✅ **Gestión de configuración** administrativa
 
 ## 🔒 Seguridad
 
-- **JWT Tokens** con expiración
+- **JWT Tokens** con expiración automática
 - **Contraseñas encriptadas** con bcrypt
-- **Rate limiting** para prevenir spam
-- **Validación** de datos de entrada
+- **Rate limiting** para prevenir ataques DDoS
+- **Validación** y sanitización de datos de entrada
 - **CORS** configurado correctamente
 - **Headers de seguridad** con Helmet
+- **Sistema de auditoría** completo con logs
+- **Detección de actividad** sospechosa
+- **Middleware de seguridad** personalizado
+- **Protección contra XSS** y injection
+- **Roles y permisos** granulares
+- **Monitoreo** de seguridad en tiempo real
 
 ## 🐛 Solución de Problemas
 
@@ -269,16 +345,28 @@ lsof -i :5000
 # Cambiar puertos en .env si es necesario
 ```
 
-## 📈 Próximas Mejoras
+## ✅ Funcionalidades Completadas
 
-- [ ] **Sistema de reservas** completo
-- [ ] **Notificaciones** en tiempo real
-- [ ] **Reportes** avanzados
+- [x] **Sistema de reservas** completo con validaciones
+- [x] **Gestión de usuarios** con roles y permisos
+- [x] **Reportes y estadísticas** avanzados
+- [x] **Sistema de auditoría** y logging
+- [x] **Configuración dinámica** del sistema
+- [x] **Middleware de seguridad** avanzado
+- [x] **Validaciones** y sanitización de datos
+- [x] **Interfaz moderna** y responsive
+- [x] **API RESTful** completa y documentada
+
+## 📈 Posibles Mejoras Futuras
+
+- [ ] **Notificaciones** push en tiempo real
 - [ ] **Backup automático** de base de datos
 - [ ] **Tests** unitarios y de integración
 - [ ] **Docker** para despliegue
 - [ ] **PWA** para acceso móvil
 - [ ] **Exportación** de datos a Excel/PDF
+- [ ] **API GraphQL** alternativa
+- [ ] **Módulo de inventario** avanzado
 
 ## 🤝 Contribuir
 

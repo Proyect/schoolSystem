@@ -2,44 +2,92 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
+const { requestLogger, securityMonitor, sanitizeInput } = require("./middleware/logging");
+const { 
+  authRateLimit, 
+  sensitiveRateLimit, 
+  generalRateLimit, 
+  speedLimiter,
+  securityHeaders,
+  payloadSizeLimit,
+  botDetection,
+  securityLogger
+} = require("./middleware/security");
 
 // Importar rutas
 const authRoutes = require("./routes/auth");
 const computerRoutes = require("./routes/computers");
+const reservationRoutes = require("./routes/reservations");
+const userRoutes = require("./routes/users");
+const reportRoutes = require("./routes/reports");
+const settingsRoutes = require("./routes/settings");
 
 const app = express();
 
-// Configuración de seguridad
-app.use(helmet());
-
-// Configuración de CORS más específica
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  credentials: true
+// Configuración de seguridad avanzada
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false
 }));
 
-// Rate limiting para prevenir ataques
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // máximo 100 requests por ventana
-  message: "Demasiadas requests desde esta IP"
-});
-app.use(limiter);
+// Headers de seguridad personalizados
+app.use(securityHeaders);
+
+// Configuración de CORS mejorada
+app.use(cors({
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "http://localhost:3000",
+      "https://localhost:3000"
+    ];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Rate limiting y seguridad
+app.use(generalRateLimit);
+app.use(speedLimiter);
+app.use(botDetection);
+app.use(securityLogger);
 
 // Middleware para parsing JSON con límite de tamaño
+app.use(payloadSizeLimit('10mb'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Middleware de logging
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
+// Middleware de seguridad y logging
+app.use(requestLogger);
+app.use(securityMonitor);
+app.use(sanitizeInput);
 
-// Rutas
-app.use("/api/auth", authRoutes);
+// Rutas con rate limiting específico
+app.use("/api/auth", authRateLimit, authRoutes);
 app.use("/api/computers", computerRoutes);
+app.use("/api/reservations", reservationRoutes);
+app.use("/api/users", sensitiveRateLimit, userRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/settings", sensitiveRateLimit, settingsRoutes);
 
 // Ruta de salud
 app.get("/health", (req, res) => {

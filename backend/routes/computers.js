@@ -1,7 +1,8 @@
 const express = require("express");
-const pool = require("../db");
+const { pool } = require("../db");
 const { auth, checkRole } = require("../middleware/auth");
 const { validateComputer } = require("../middleware/validation");
+const { auditLogger } = require("../middleware/logging");
 
 const router = express.Router();
 
@@ -64,7 +65,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // Agregar una nueva computadora (requiere autenticación)
-router.post("/", auth, checkRole(['admin', 'teacher']), validateComputer, async (req, res) => {
+router.post("/", auth, checkRole(['admin', 'teacher']), validateComputer, auditLogger('CREATE_COMPUTER'), async (req, res) => {
     try {
         const { code, description } = req.body;
         
@@ -87,7 +88,7 @@ router.post("/", auth, checkRole(['admin', 'teacher']), validateComputer, async 
 });
 
 // Actualizar estado de computadora
-router.patch("/:id/status", auth, async (req, res) => {
+router.patch("/:id/status", auth, auditLogger('UPDATE_COMPUTER_STATUS'), async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
@@ -113,7 +114,7 @@ router.patch("/:id/status", auth, async (req, res) => {
 });
 
 // Eliminar computadora (solo admin)
-router.delete("/:id", auth, checkRole(['admin']), async (req, res) => {
+router.delete("/:id", auth, checkRole(['admin']), auditLogger('DELETE_COMPUTER'), async (req, res) => {
     try {
         const { id } = req.params;
         const computer = await pool.query("DELETE FROM computers WHERE id = $1 RETURNING *", [id]);
