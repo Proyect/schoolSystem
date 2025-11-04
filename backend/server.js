@@ -13,6 +13,7 @@ const {
   botDetection,
   securityLogger
 } = require("./middleware/security");
+const { healthCheck, getPoolStats } = require("./db");
 
 // Importar rutas
 const authRoutes = require("./routes/auth");
@@ -23,6 +24,9 @@ const reportRoutes = require("./routes/reports");
 const settingsRoutes = require("./routes/settings");
 
 const app = express();
+
+ // Confiar en el proxy para obtener IPs reales (útil detrás de Nginx/Heroku)
+ app.set('trust proxy', 1);
 
 // Configuración de seguridad avanzada
 app.use(helmet({
@@ -39,26 +43,38 @@ app.use(helmet({
       frameSrc: ["'none'"],
     },
   },
-  crossOriginEmbedderPolicy: false
 }));
 
 // Headers de seguridad personalizados
 app.use(securityHeaders);
 
-// Configuración de CORS mejorada
+// Configuración de CORS mejorada (soporta múltiples orígenes por env)
+const parseOrigins = () => {
+  const envOrigins = process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '';
+  const list = Array.isArray(envOrigins)
+    ? envOrigins
+    : String(envOrigins)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+  // defaults de desarrollo
+  const defaults = [
+    'http://localhost:4001',
+    'https://localhost:4001'
+  ];
+  return Array.from(new Set([...list, ...defaults]));
+};
+
+const allowedOrigins = parseOrigins();
+
 app.use(cors({
   origin: function (origin, callback) {
-    const allowedOrigins = [
-      process.env.FRONTEND_URL || "http://localhost:3000",
-      "http://localhost:3000",
-      "https://localhost:3000"
-    ];
-    
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('No permitido por CORS'));
+    // Permitir llamadas server-to-server (sin origin)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    return callback(new Error('No permitido por CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -69,7 +85,6 @@ app.use(cors({
 app.use(generalRateLimit);
 app.use(speedLimiter);
 app.use(botDetection);
-app.use(securityLogger);
 
 // Middleware para parsing JSON con límite de tamaño
 app.use(payloadSizeLimit('10mb'));
@@ -79,12 +94,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Middleware de seguridad y logging
 app.use(requestLogger);
 app.use(securityMonitor);
+app.use(securityLogger);
 app.use(sanitizeInput);
 
 // Rutas con rate limiting específico
 app.use("/api/auth", authRateLimit, authRoutes);
 app.use("/api/computers", computerRoutes);
-app.use("/api/reservations", reservationRoutes);
 app.use("/api/users", sensitiveRateLimit, userRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/settings", sensitiveRateLimit, settingsRoutes);
@@ -96,6 +111,27 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
+});
+
+// Ruta de salud de base de datos
+app.get("/health/db", async (req, res) => {
+  try {
+    const dbStatus = await healthCheck();
+    const pool = getPoolStats();
+    res.json({ status: "OK", db: dbStatus, pool });
+  } catch (e) {
+    res.status(500).json({ status: "ERROR", error: e.message });
+  }
+});
+
+// Ruta de métricas del pool
+app.get("/health/pool", (req, res) => {
+  try {
+    const pool = getPoolStats();
+    res.json({ status: "OK", pool });
+  } catch (e) {
+    res.status(500).json({ status: "ERROR", error: e.message });
+  }
 });
 
 // Ruta raíz

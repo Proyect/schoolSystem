@@ -1,13 +1,13 @@
 const express = require("express");
 const { pool } = require("../db");
 const { auth, checkRole } = require("../middleware/auth");
-const { validateReservation } = require("../middleware/validation");
+const { validateReservation, validateParams, validateQuery } = require("../middleware/validation");
 const { auditLogger } = require("../middleware/logging");
 
 const router = express.Router();
 
 // Obtener todas las reservas con paginación y filtros
-router.get("/", auth, async (req, res) => {
+router.get("/", auth, validateQuery, async (req, res) => {
     try {
         const { page = 1, limit = 10, status, user_id, computer_id, date } = req.query;
         const offset = (page - 1) * limit;
@@ -88,7 +88,7 @@ router.get("/", auth, async (req, res) => {
 });
 
 // Obtener una reserva específica
-router.get("/:id", auth, async (req, res) => {
+router.get("/:id", auth, validateParams, async (req, res) => {
     try {
         const { id } = req.params;
         
@@ -183,7 +183,7 @@ router.post("/", auth, validateReservation, auditLogger('CREATE_RESERVATION'), a
 });
 
 // Actualizar estado de reserva
-router.patch("/:id/status", auth, auditLogger('UPDATE_RESERVATION_STATUS'), async (req, res) => {
+router.patch("/:id/status", auth, validateParams, auditLogger('UPDATE_RESERVATION_STATUS'), async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
@@ -233,7 +233,7 @@ router.patch("/:id/status", auth, auditLogger('UPDATE_RESERVATION_STATUS'), asyn
 });
 
 // Eliminar reserva (solo admins)
-router.delete("/:id", auth, checkRole(['admin']), auditLogger('DELETE_RESERVATION'), async (req, res) => {
+router.delete("/:id", auth, checkRole(['admin']), validateParams, auditLogger('DELETE_RESERVATION'), async (req, res) => {
     try {
         const { id } = req.params;
         
@@ -261,7 +261,7 @@ router.delete("/:id", auth, checkRole(['admin']), auditLogger('DELETE_RESERVATIO
 });
 
 // Obtener horarios disponibles para una computadora en una fecha
-router.get("/computers/:computer_id/availability", auth, async (req, res) => {
+router.get("/computers/:computer_id/availability", auth, validateParams, async (req, res) => {
     try {
         const { computer_id } = req.params;
         const { date } = req.query;

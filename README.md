@@ -135,6 +135,8 @@ JWT_SECRET=tu_super_secret_jwt_key_aqui_cambialo_en_produccion
 FRONTEND_URL=http://localhost:3000
 ```
 
+Nota (producción): establece `FRONTEND_URL` al dominio real del frontend, por ejemplo `https://app.midominio.com`, para que CORS permita el origen correcto.
+
 #### Iniciar servidor de desarrollo:
 ```bash
 npm run dev
@@ -146,6 +148,14 @@ npm run dev
 ```bash
 cd frontend/school-app
 npm install
+```
+
+#### Variables de entorno (opcional pero recomendado)
+Crea un archivo `.env.local` en `frontend/school-app/` con:
+
+```env
+# URL del backend (ajusta si es diferente)
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
 ```
 
 #### Iniciar aplicación:
@@ -221,21 +231,6 @@ schoolSystem/
 │       │   └── lib/
 │       │       └── api.js       # Configuración de API
 │       └── package.json
-└── README.md
-```
-
-## 🔧 API Endpoints
-
-### Autenticación
-- `POST /api/auth/login` - Iniciar sesión
-- `GET /api/auth/verify` - Verificar token
-
-### Computadoras
-- `GET /api/computers` - Listar computadoras (con paginación)
-- `GET /api/computers/:id` - Obtener computadora específica
-- `POST /api/computers` - Crear computadora (Admin/Teacher)
-- `PATCH /api/computers/:id/status` - Actualizar estado
-- `DELETE /api/computers/:id` - Eliminar computadora (Admin)
 
 ### Reservas
 - `GET /api/reservations` - Listar reservas (con filtros)
@@ -247,7 +242,6 @@ schoolSystem/
 
 ### Usuarios
 - `GET /api/users` - Listar usuarios (Admin)
-- `GET /api/users/:id` - Obtener usuario específico
 - `POST /api/users` - Crear usuario (Admin)
 - `PUT /api/users/:id` - Actualizar usuario
 - `PATCH /api/users/:id/password` - Cambiar contraseña

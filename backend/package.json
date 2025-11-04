@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "db:migrate": "psql -U postgres -d school_system -f database/schema.sql",
-    "db:reset": "psql -U postgres -c \"DROP DATABASE IF EXISTS school_system;\" && npm run db:migrate"
+    "db:reset": "psql -U postgres -c \"DROP DATABASE IF EXISTS school_system;\" && psql -U postgres -c \"CREATE DATABASE school_system;\" && npm run db:migrate",
+    "db:migrate:url": "psql \"$DATABASE_URL\" -f database/schema.sql",
+    "seed:admin": "node scripts/createAdmin.js"
   },
   "keywords": ["school", "system", "api", "express"],
   "author": "",
@@ -21,6 +23,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.1.5",
+    "express-slow-down": "^1.6.0",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.3"

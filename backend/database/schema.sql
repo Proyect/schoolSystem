@@ -1,9 +1,3 @@
--- Crear base de datos
-CREATE DATABASE school_system;
-
--- Conectar a la base de datos
-\c school_system;
-
 -- Tabla de usuarios
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -16,8 +10,8 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de computadoras
-CREATE TABLE computers (
+  -- Tabla de computadoras
+  CREATE TABLE computers (
     id SERIAL PRIMARY KEY,
     code VARCHAR(50) UNIQUE NOT NULL,
     description TEXT,
@@ -25,7 +19,7 @@ CREATE TABLE computers (
     created_by INTEGER REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+  );
 
 -- Tabla de reservas
 CREATE TABLE reservations (

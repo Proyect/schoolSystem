@@ -4,50 +4,55 @@ const { getOptimizedConfig } = require('./config/performance');
 // Obtener configuración optimizada según el entorno
 const config = getOptimizedConfig();
 const dbConfig = config.database;
+const isProd = process.env.NODE_ENV === 'production';
+
+// Soportar DATABASE_URL en producción u otros entornos
+const basePoolOptions = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: isProd ? { rejectUnauthorized: false } : false,
+    }
+  : {
+      user: process.env.DB_USER || 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      database: process.env.DB_NAME || 'school_system',
+      password: process.env.DB_PASSWORD || 'password',
+      port: Number(process.env.DB_PORT) || 5432,
+      ssl: isProd ? { rejectUnauthorized: false } : false,
+    };
 
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'school_system',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
+  ...basePoolOptions,
   // Configuración optimizada del pool
   max: dbConfig.max,
   min: dbConfig.min,
   idleTimeoutMillis: dbConfig.idleTimeoutMillis,
   connectionTimeoutMillis: dbConfig.connectionTimeoutMillis,
-  acquireTimeoutMillis: dbConfig.acquireTimeoutMillis,
-  createTimeoutMillis: dbConfig.createTimeoutMillis,
-  destroyTimeoutMillis: dbConfig.destroyTimeoutMillis,
-  reapIntervalMillis: dbConfig.reapIntervalMillis,
-  createRetryIntervalMillis: dbConfig.createRetryIntervalMillis,
   // Configuraciones adicionales para mejor rendimiento
   statement_timeout: 30000, // 30 segundos
   query_timeout: 30000, // 30 segundos
   application_name: 'school-system-backend',
-  // Configuración SSL para producción
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 // Event listeners optimizados
 pool.on('error', (err) => {
   console.error('Error inesperado en el pool de base de datos:', err);
-  // En producción, no salir del proceso inmediatamente
-  if (process.env.NODE_ENV !== 'production') {
+  // En desarrollo, salir para visibilizar el fallo temprano
+  if (!isProd) {
     process.exit(-1);
   }
 });
 
 pool.on('connect', (client) => {
-  console.log('Nueva conexión a la base de datos establecida');
+  if (!isProd) console.log('Nueva conexión a la base de datos establecida');
 });
 
 pool.on('acquire', (client) => {
-  console.log('Cliente adquirido del pool');
+  if (!isProd) console.log('Cliente adquirido del pool');
 });
 
 pool.on('remove', (client) => {
-  console.log('Cliente removido del pool');
+  if (!isProd) console.log('Cliente removido del pool');
 });
 
 // Función para verificar la salud de la conexión

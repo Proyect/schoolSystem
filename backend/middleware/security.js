@@ -62,17 +62,8 @@ const securityHeaders = (req, res, next) => {
   
   // Referrer policy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
-  // Content Security Policy básico
-  res.setHeader('Content-Security-Policy', 
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline'; " +
-    "style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: https:; " +
-    "font-src 'self'; " +
-    "connect-src 'self'; " +
-    "frame-ancestors 'none';"
-  );
+  // Nota: No establecemos Content-Security-Policy aquí para evitar duplicarlo con helmet.
+  // La CSP debe definirse en el servidor que entrega el frontend (CDN/Next headers) o vía helmet.
   
   // Permissions Policy
   res.setHeader('Permissions-Policy', 
@@ -138,7 +129,8 @@ const botDetection = (req, res, next) => {
   
   const isBot = botPatterns.some(pattern => pattern.test(userAgent));
   
-  if (isBot && !req.path.startsWith('/api/health')) {
+  // Permitir rutas de health para monitoreo incluso con UAs que parezcan bots
+  if (isBot && !req.path.startsWith('/api/health') && !req.path.startsWith('/health')) {
     console.warn(`[SECURITY] Bot detected: ${userAgent} from ${req.ip}`);
     return res.status(403).json({
       error: 'Acceso no permitido para bots'

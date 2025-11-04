@@ -63,7 +63,7 @@ router.get("/", auth, checkRole(['admin']), validateQuery, async (req, res) => {
 });
 
 // Obtener un usuario específico
-router.get("/:id", auth, async (req, res) => {
+router.get("/:id", auth, validateParams, async (req, res) => {
     try {
         const { id } = req.params;
         
@@ -116,7 +116,7 @@ router.post("/", auth, checkRole(['admin']), validateUser, auditLogger('CREATE_U
 });
 
 // Actualizar un usuario
-router.put("/:id", auth, validateUser, auditLogger('UPDATE_USER'), async (req, res) => {
+router.put("/:id", auth, validateParams, validateUser, auditLogger('UPDATE_USER'), async (req, res) => {
     try {
         const { id } = req.params;
         const { email, first_name, last_name, role } = req.body;
@@ -193,7 +193,7 @@ router.put("/:id", auth, validateUser, auditLogger('UPDATE_USER'), async (req, r
 });
 
 // Cambiar contraseña
-router.patch("/:id/password", auth, auditLogger('UPDATE_PASSWORD'), async (req, res) => {
+router.patch("/:id/password", auth, validateParams, auditLogger('UPDATE_PASSWORD'), async (req, res) => {
     try {
         const { id } = req.params;
         const { current_password, new_password } = req.body;
@@ -241,7 +241,7 @@ router.patch("/:id/password", auth, auditLogger('UPDATE_PASSWORD'), async (req, 
 });
 
 // Eliminar usuario (solo admin)
-router.delete("/:id", auth, checkRole(['admin']), auditLogger('DELETE_USER'), async (req, res) => {
+router.delete("/:id", auth, checkRole(['admin']), validateParams, auditLogger('DELETE_USER'), async (req, res) => {
     try {
         const { id } = req.params;
         
@@ -293,4 +293,4 @@ router.get("/stats/overview", auth, checkRole(['admin']), async (req, res) => {
     }
 });
 
-module.exp
+module.exports = router;

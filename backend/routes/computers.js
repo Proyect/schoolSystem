@@ -1,13 +1,13 @@
 const express = require("express");
 const { pool } = require("../db");
 const { auth, checkRole } = require("../middleware/auth");
-const { validateComputer } = require("../middleware/validation");
+const { validateComputer, validateParams, validateQuery } = require("../middleware/validation");
 const { auditLogger } = require("../middleware/logging");
 
 const router = express.Router();
 
 // Obtener todas las computadoras con paginación
-router.get("/", async (req, res) => {
+router.get("/", validateQuery, async (req, res) => {
     try {
         const { page = 1, limit = 10, status } = req.query;
         const offset = (page - 1) * limit;
@@ -48,7 +48,7 @@ router.get("/", async (req, res) => {
 });
 
 // Obtener una computadora específica
-router.get("/:id", async (req, res) => {
+router.get("/:id", validateParams, async (req, res) => {
     try {
         const { id } = req.params;
         const computer = await pool.query("SELECT * FROM computers WHERE id = $1", [id]);
@@ -88,7 +88,7 @@ router.post("/", auth, checkRole(['admin', 'teacher']), validateComputer, auditL
 });
 
 // Actualizar estado de computadora
-router.patch("/:id/status", auth, auditLogger('UPDATE_COMPUTER_STATUS'), async (req, res) => {
+router.patch("/:id/status", auth, validateParams, auditLogger('UPDATE_COMPUTER_STATUS'), async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
@@ -114,7 +114,7 @@ router.patch("/:id/status", auth, auditLogger('UPDATE_COMPUTER_STATUS'), async (
 });
 
 // Eliminar computadora (solo admin)
-router.delete("/:id", auth, checkRole(['admin']), auditLogger('DELETE_COMPUTER'), async (req, res) => {
+router.delete("/:id", auth, checkRole(['admin']), validateParams, auditLogger('DELETE_COMPUTER'), async (req, res) => {
     try {
         const { id } = req.params;
         const computer = await pool.query("DELETE FROM computers WHERE id = $1 RETURNING *", [id]);
