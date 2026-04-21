@@ -19,10 +19,14 @@ const createRateLimit = (windowMs, max, message) => {
 };
 
 // Rate limiting para autenticación (más estricto)
+// En desarrollo, más permisivo para testing
+const isDev = process.env.NODE_ENV === 'development';
 const authRateLimit = createRateLimit(
-  15 * 60 * 1000, // 15 minutos
-  5, // máximo 5 intentos
-  'Demasiados intentos de login. Intenta de nuevo en 15 minutos.'
+  isDev ? 1 * 60 * 1000 : 15 * 60 * 1000, // 1 minuto en dev, 15 en prod
+  isDev ? 20 : 5, // máximo 20 intentos en dev, 5 en prod
+  isDev 
+    ? 'Demasiados intentos de login. Intenta de nuevo en 1 minuto.'
+    : 'Demasiados intentos de login. Intenta de nuevo en 15 minutos.'
 );
 
 // Rate limiting para operaciones sensibles

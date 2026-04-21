@@ -1,0 +1,240 @@
+openapi: 3.0.3
+info:
+  title: Sistema Escolar - API
+  description: API para gestión de computadoras y reservas en laboratorios escolares.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5051
+    description: Desarrollo
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string, format: email }
+        role: { type: string, enum: [admin, teacher, student] }
+        first_name: { type: string }
+        last_name: { type: string }
+    Computer:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        description: { type: string }
+        serial_number: { type: string, nullable: true }
+        hardware_id: { type: string, nullable: true }
+        status: { type: string, enum: [available, in_use, maintenance, out_of_service] }
+    Reservation:
+      type: object
+      properties:
+        id: { type: integer }
+        computer_id: { type: integer }
+        user_id: { type: integer }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        status: { type: string, enum: [active, completed, cancelled] }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        requestId: { type: string }
+
+paths:
+  /api/auth/login:
+    post:
+      summary: Iniciar sesión
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Token y datos de usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '400':
+          description: Credenciales inválidas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/auth/verify:
+    get:
+      summary: Verificar token
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Token válido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid: { type: boolean }
+                  user: { $ref: '#/components/schemas/User' }
+        '401':
+          description: Token inválido o ausente
+
+  /api/computers:
+    get:
+      summary: Listar computadoras
+      tags: [Computers]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: status
+          in: query
+          schema: { type: string, enum: [available, in_use, maintenance, out_of_service] }
+      responses:
+        '200':
+          description: Lista paginada de computadoras
+        '401':
+          description: No autenticado
+    post:
+      summary: Crear computadora (admin/teacher)
+      tags: [Computers]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, description]
+              properties:
+                code: { type: string }
+                description: { type: string }
+                serial_number: { type: string, nullable: true }
+                hardware_id: { type: string, nullable: true }
+      responses:
+        '201':
+          description: Computadora creada
+        '400':
+          description: Validación fallida
+        '403':
+          description: Rol insuficiente
+
+  /api/computers/{id}:
+    get:
+      summary: Obtener una computadora
+      tags: [Computers]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Detalle de computadora
+        '404':
+          description: No encontrada
+
+  /api/reservations:
+    get:
+      summary: Listar reservas
+      tags: [Reservations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, completed, cancelled] }
+        - name: user_id
+          in: query
+          schema: { type: integer }
+        - name: computer_id
+          in: query
+          schema: { type: integer }
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Lista paginada de reservas
+    post:
+      summary: Crear reserva
+      tags: [Reservations]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [computer_id, start_time, end_time]
+              properties:
+                computer_id: { type: integer }
+                start_time: { type: string, format: date-time }
+                end_time: { type: string, format: date-time }
+      responses:
+        '201':
+          description: Reserva creada
+        '400':
+          description: Validación o conflicto de horario
+
+  /api/users:
+    get:
+      summary: Listar usuarios (solo admin)
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: role
+          in: query
+          schema: { type: string, enum: [admin, teacher, student] }
+      responses:
+        '200':
+          description: Lista paginada de usuarios
+        '403':
+          description: Solo admin
+
+  /health:
+    get:
+      summary: Estado del servidor
+      tags: [Health]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: OK }
+                  timestamp: { type: string, format: date-time }
+                  uptime: { type: number }

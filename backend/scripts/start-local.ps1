@@ -34,15 +34,21 @@ function Write-Ok($msg) { Write-Host "[OK]   $msg" -ForegroundColor Green }
 function Write-Warn($msg) { Write-Host "[WARN] $msg" -ForegroundColor Yellow }
 function Write-Err($msg) { Write-Host "[ERR]  $msg" -ForegroundColor Red }
 
+# Detectar modo pg-mem (testing en memoria)
+$usePgMem = $false
+if ($env:DB_VENDOR -and $env:DB_VENDOR.ToLower() -eq 'pgmem') { $usePgMem = $true }
+
 # 1) Validaciones iniciales
 Write-Info "Verificando herramientas..."
-if (-not (Get-Command psql -ErrorAction SilentlyContinue)) {
-  Write-Err "psql no está en el PATH. Instala PostgreSQL o agrega psql al PATH."
-  exit 1
-}
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
   Write-Err "npm no está en el PATH. Instala Node.js."
   exit 1
+}
+if (-not $usePgMem) {
+  if (-not (Get-Command psql -ErrorAction SilentlyContinue)) {
+    Write-Err "psql no está en el PATH. Instala PostgreSQL o agrega psql al PATH."
+    exit 1
+  }
 }
 
 # Establecer ubicación a la carpeta backend del script
@@ -54,42 +60,42 @@ Write-Info "Instalando dependencias del backend..."
 npm install
 if ($LASTEXITCODE -ne 0) { Write-Err "Fallo npm install en backend"; exit 1 }
 
-# 3) Preparar DB: crear si no existe y migrar
-if ($UseDatabaseUrl -or $DatabaseUrl) {
-  if (-not $DatabaseUrl) {
-    $DatabaseUrl = $env:DATABASE_URL
-  }
-  if (-not $DatabaseUrl) {
-    Write-Err "UseDatabaseUrl está activo, pero DATABASE_URL no fue provisto."
-    exit 1
-  }
-  Write-Info "Aplicando migraciones con DATABASE_URL..."
-  $env:DATABASE_URL = $DatabaseUrl
-  npm run db:migrate:url
-  if ($LASTEXITCODE -ne 0) { Write-Err "Fallo migración con DATABASE_URL"; exit 1 }
+# 3) Preparar DB: en pg-mem saltar migraciones; en Postgres real, correrlas
+if ($usePgMem) {
+  Write-Info "DB_VENDOR=pgmem detectado. Se omiten chequeos de psql y migraciones; el esquema se cargará en memoria desde el backend."
 } else {
-  Write-Info "Creando base de datos si no existe ($DbName)..."
-  $env:PGPASSWORD = $DbPassword
-  $dbExists = psql -U $DbUser -h $DbHost -p $DbPort -tAc "SELECT 1 FROM pg_database WHERE datname='$DbName'" 2>$null
-  if (-not $dbExists) { $dbExists = "" }
-  if ($dbExists.Trim() -ne "1") {
-    Write-Info "Creando base de datos $DbName..."
-    psql -U $DbUser -h $DbHost -p $DbPort -c "CREATE DATABASE $DbName;"
-    if ($LASTEXITCODE -ne 0) { Write-Err "Fallo creando la base de datos"; exit 1 }
+  if ($UseDatabaseUrl -or $DatabaseUrl) {
+    if (-not $DatabaseUrl) { $DatabaseUrl = $env:DATABASE_URL }
+    if (-not $DatabaseUrl) { Write-Err "UseDatabaseUrl está activo, pero DATABASE_URL no fue provisto."; exit 1 }
+    Write-Info "Aplicando migraciones con DATABASE_URL..."
+    $env:DATABASE_URL = $DatabaseUrl
+    npm run db:migrate:url
+    if ($LASTEXITCODE -ne 0) { Write-Err "Fallo migración con DATABASE_URL"; exit 1 }
   } else {
-    Write-Ok "La base $DbName ya existe"
+    Write-Info "Creando base de datos si no existe ($DbName)..."
+    $env:PGPASSWORD = $DbPassword
+    $dbExists = psql -U $DbUser -h $DbHost -p $DbPort -tAc "SELECT 1 FROM pg_database WHERE datname='$DbName'" 2>$null
+    if (-not $dbExists) { $dbExists = "" }
+    if ($dbExists.Trim() -ne "1") {
+      Write-Info "Creando base de datos $DbName..."
+      psql -U $DbUser -h $DbHost -p $DbPort -c "CREATE DATABASE $DbName;"
+      if ($LASTEXITCODE -ne 0) { Write-Err "Fallo creando la base de datos"; exit 1 }
+    } else {
+      Write-Ok "La base $DbName ya existe"
+    }
+    Write-Info "Aplicando migraciones locales..."
+    psql -U $DbUser -h $DbHost -p $DbPort -d $DbName -f .\database\schema.sql
+    if ($LASTEXITCODE -ne 0) { Write-Err "Fallo aplicando schema.sql"; exit 1 }
   }
-  Write-Info "Aplicando migraciones locales..."
-  psql -U $DbUser -h $DbHost -p $DbPort -d $DbName -f .\database\schema.sql
-  if ($LASTEXITCODE -ne 0) { Write-Err "Fallo aplicando schema.sql"; exit 1 }
+  Write-Ok "Migraciones aplicadas"
 }
-Write-Ok "Migraciones aplicadas"
 
 # 4) Sembrar/actualizar admin
 Write-Info "Creando/actualizando usuario admin..."
 $env:ADMIN_EMAIL = $AdminEmail
 $env:ADMIN_PASSWORD = $AdminPassword
 $env:NODE_ENV = "development"
+if ($usePgMem) { $env:DB_VENDOR = "pgmem" }
 node .\scripts\createAdmin.js
 if ($LASTEXITCODE -ne 0) { Write-Err "Fallo creando/actualizando admin"; exit 1 }
 Write-Ok "Admin listo: $AdminEmail"
@@ -97,7 +103,11 @@ Write-Ok "Admin listo: $AdminEmail"
 # 5) Levantar backend (puerto 5051) en nueva ventana
 Write-Info "Levantando backend (npm run dev)..."
 $backendPath = (Get-Location).Path
-Start-Process powershell -ArgumentList "-NoExit","-Command","cd `"$backendPath`"; npm run dev"
+if ($usePgMem) {
+  Start-Process powershell -ArgumentList "-NoExit","-Command","$env:DB_VENDOR='pgmem'; cd `"$backendPath`"; npm run dev"
+} else {
+  Start-Process powershell -ArgumentList "-NoExit","-Command","cd `"$backendPath`"; npm run dev"
+}
 
 # 6) Levantar frontend (puerto 4001) en nueva ventana
 $frontendPath = Join-Path $backendPath "..\frontend\school-app"
@@ -120,3 +130,4 @@ if (Test-Path $frontendPath) {
 Write-Ok "Entorno local iniciado."
 Write-Info "Backend: http://localhost:5051 | Health: http://localhost:5051/health"
 Write-Info "Frontend: http://localhost:4001"
+

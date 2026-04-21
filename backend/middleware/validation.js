@@ -36,7 +36,7 @@ const validateLogin = (req, res, next) => {
 };
 
 const validateComputer = (req, res, next) => {
-  const { code, description } = req.body;
+  const { code, description, serial_number, hardware_id } = req.body;
   
   if (!code || !description) {
     return res.status(400).json({ error: 'Código y descripción son requeridos' });
@@ -54,6 +54,14 @@ const validateComputer = (req, res, next) => {
     return res.status(400).json({ error: 'La descripción debe tener entre 5 y 255 caracteres' });
   }
   
+  if (serial_number != null && (typeof serial_number !== 'string' || serial_number.length > 100)) {
+    return res.status(400).json({ error: 'Número de serie debe ser texto de hasta 100 caracteres' });
+  }
+  
+  if (hardware_id != null && (typeof hardware_id !== 'string' || hardware_id.length > 100)) {
+    return res.status(400).json({ error: 'ID de hardware debe ser texto de hasta 100 caracteres' });
+  }
+  
   // Validar que el código solo contenga caracteres alfanuméricos y guiones
   if (!/^[a-zA-Z0-9-_]+$/.test(code)) {
     return res.status(400).json({ error: 'El código solo puede contener letras, números, guiones y guiones bajos' });
@@ -62,6 +70,8 @@ const validateComputer = (req, res, next) => {
   // Sanitizar entrada
   req.body.code = sanitizeText(code).toUpperCase();
   req.body.description = sanitizeText(description);
+  req.body.serial_number = serial_number ? sanitizeText(serial_number) : null;
+  req.body.hardware_id = hardware_id ? sanitizeText(hardware_id) : null;
   
   next();
 };
@@ -221,8 +231,8 @@ const validateQuery = (req, res, next) => {
     
     if (limit) {
       const limitNum = parseInt(limit);
-      if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
-        return res.status(400).json({ error: 'El parámetro limit debe ser un número entre 1 y 100' });
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000) {
+        return res.status(400).json({ error: 'El parámetro limit debe ser un número entre 1 y 1000' });
       }
       req.query.limit = limitNum;
     }

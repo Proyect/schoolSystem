@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Frontend - Sistema Escolar</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 4px solid #ddd;
+            background: #f9f9f9;
+        }
+        .test-item.pass {
+            border-left-color: #4caf50;
+            background: #e8f5e9;
+        }
+        .test-item.fail {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        .test-item.loading {
+            border-left-color: #ff9800;
+            background: #fff3e0;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Frontend - Sistema Escolar</h1>
+    
+    <div class="test-container">
+        <h2>Tests de Conectividad</h2>
+        <div id="tests"></div>
+    </div>
+    
+    <div class="test-container">
+        <button onclick="runAllTests()">Ejecutar Todos los Tests</button>
+        <button onclick="clearLocalStorage()">Limpiar LocalStorage</button>
+        <button onclick="testLogin()">Test Login Directo</button>
+    </div>
+    
+    <div class="summary" id="summary"></div>
+
+    <script>
+        const API_URL = 'http://localhost:5051/api';
+        let testResults = [];
+
+        function addTest(name, status, message) {
+            const testsDiv = document.getElementById('tests');
+            const testItem = document.createElement('div');
+            testItem.className = `test-item ${status}`;
+            testItem.innerHTML = `<strong>${name}</strong>: ${message}`;
+            testsDiv.appendChild(testItem);
+            
+            testResults.push({ name, status, message });
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const summary = document.getElementById('summary');
+            const passed = testResults.filter(t => t.status === 'pass').length;
+            const failed = testResults.filter(t => t.status === 'fail').length;
+            const total = testResults.length;
+            
+            summary.innerHTML = `
+                <h3>Resumen</h3>
+                <p>Total: ${total} | ✓ Pasados: ${passed} | ✗ Fallidos: ${failed}</p>
+            `;
+        }
+
+        async function testBackendHealth() {
+            try {
+                const response = await fetch('http://localhost:5051/health');
+                const data = await response.json();
+                if (data.status === 'OK') {
+                    addTest('Backend Health', 'pass', `OK - Uptime: ${data.uptime}s`);
+                    return true;
+                } else {
+                    addTest('Backend Health', 'fail', 'Status no es OK');
+                    return false;
+                }
+            } catch (error) {
+                addTest('Backend Health', 'fail', `Error: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testLogin() {
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@school.com',
+                        password: 'password123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    addTest('Login API', 'pass', `Token recibido - Usuario: ${data.user.email}`);
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    return data.token;
+                } else {
+                    addTest('Login API', 'fail', `Error: ${data.error || 'Sin token'}`);
+                    return null;
+                }
+            } catch (error) {
+                addTest('Login API', 'fail', `Error: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function testVerify(token) {
+            if (!token) {
+                addTest('Verify Token', 'fail', 'No hay token para verificar');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/verify`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.user) {
+                    addTest('Verify Token', 'pass', `Usuario verificado: ${data.user.email}`);
+                } else {
+                    addTest('Verify Token', 'fail', `Error: ${data.error || 'Sin usuario'}`);
+                }
+            } catch (error) {
+                addTest('Verify Token', 'fail', `Error: ${error.message}`);
+            }
+        }
+
+        async function testFrontendAccess() {
+            try {
+                const response = await fetch('http://localhost:4001/login');
+                if (response.ok || response.status === 200) {
+                    addTest('Frontend Login Page', 'pass', `Status: ${response.status}`);
+                } else {
+                    addTest('Frontend Login Page', 'fail', `Status: ${response.status}`);
+                }
+            } catch (error) {
+                addTest('Frontend Login Page', 'fail', `Error: ${error.message}`);
+            }
+        }
+
+        async function testLocalStorage() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (token && user) {
+                addTest('LocalStorage', 'pass', `Token y usuario encontrados`);
+                return true;
+            } else {
+                addTest('LocalStorage', 'pass', `Sin token (normal si no has hecho login)`);
+                return false;
+            }
+        }
+
+        async function testCORS() {
+            try {
+                const response = await fetch('http://localhost:5051/health', {
+                    method: 'OPTIONS'
+                });
+                addTest('CORS', 'pass', 'CORS configurado');
+            } catch (error) {
+                addTest('CORS', 'fail', `Error: ${error.message}`);
+            }
+        }
+
+        async function runAllTests() {
+            document.getElementById('tests').innerHTML = '';
+            testResults = [];
+            
+            addTest('Iniciando tests...', 'loading', '');
+            
+            // Tests secuenciales
+            await testBackendHealth();
+            await testFrontendAccess();
+            await testLocalStorage();
+            await testCORS();
+            
+            const token = await testLogin();
+            if (token) {
+                await testVerify(token);
+            }
+            
+            addTest('Tests completados', 'pass', 'Revisa los resultados arriba');
+        }
+
+        function clearLocalStorage() {
+            localStorage.clear();
+            addTest('LocalStorage', 'pass', 'LocalStorage limpiado');
+            alert('LocalStorage limpiado. Recarga la página.');
+        }
+
+        // Ejecutar tests automáticamente al cargar
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -82,11 +82,165 @@ Un sistema completo para la gestión de computadoras en laboratorios escolares, 
 
 ## 📋 Requisitos Previos
 
-- **Node.js** 18+ 
-- **PostgreSQL** 12+
+- **Node.js** 18+
+- **PostgreSQL 12+** (opcional: puedes usar base en memoria para desarrollo). El esquema usa `EXECUTE PROCEDURE` en triggers para compatibilidad con versiones recientes de PostgreSQL.
 - **npm** o **yarn**
 
-## 🚀 Instalación
+**Nota sobre producción:** Los usuarios de ejemplo en `schema.sql` tienen un hash de contraseña fijo. En producción debes crear usuarios con `npm run seed:admin` (backend) o mediante `scripts/initDb.js` (bcrypt real), y no confiar en los INSERT del schema sin reemplazar contraseñas.
+
+---
+
+## 📖 Manual de inicio – Cómo iniciar el sistema
+
+Sigue estos pasos para poner el sistema en marcha en tu máquina.
+
+### Levantar el proyecto con un solo comando
+
+Desde la **raíz del proyecto** puedes usar:
+
+| Método | Comando |
+|--------|---------|
+| **npm** (recomendado) | `npm install` y luego `npm run dev` |
+| **Windows (CMD)** | Doble clic en `start.bat` o `start.bat` en la terminal |
+| **Windows (PowerShell)** | `.\start.ps1` |
+| **Linux / Mac** | `./start.sh` o `bash start.sh` |
+
+**Comportamiento de `npm run dev`:** Si existe `frontend/school-app`, se levantan backend y frontend. Si no existe, solo se inicia el backend.
+
+La primera vez, instala dependencias en la raíz:
+
+```bash
+cd schoolSystem
+npm install
+npm run dev
+```
+
+Se inician el backend (puerto 5051) y, si existe, el frontend (puerto 4001). Abre **http://localhost:4001** si usas frontend o **http://localhost:5051/health** para comprobar el API.
+
+---
+
+### Opción A: Inicio rápido (sin instalar PostgreSQL)
+
+Ideal para desarrollo o pruebas. El backend usa una base de datos en memoria (pg-mem).
+
+1. **Backend**
+   ```bash
+   cd backend
+   npm install
+   ```
+   Crea el archivo `backend/.env` con al menos:
+   ```env
+   PORT=5051
+   DB_VENDOR=pgmem
+   JWT_SECRET=clave_secreta_super_segura
+   FRONTEND_URL=http://localhost:4001
+   ```
+   Luego inicia el servidor:
+   ```bash
+   npm run dev
+   ```
+   Verás: `Servidor ejecutándose en http://localhost:5051`. El backend creará usuarios de prueba automáticamente.
+
+2. **Frontend**
+   En otra terminal:
+   ```bash
+   cd frontend/school-app
+   npm install
+   ```
+   Crea `frontend/school-app/.env.local`:
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:5051/api
+   ```
+   Inicia la aplicación:
+   ```bash
+   npm run dev
+   ```
+   El frontend quedará en **http://localhost:4001**.
+
+3. **Abrir el sistema**
+   - Navegador: **http://localhost:4001**
+   - Inicia sesión por ejemplo con: `admin@school.com` / `password123`
+
+---
+
+### Opción B: Con PostgreSQL (producción o desarrollo con datos persistentes)
+
+1. **Base de datos**
+   - Crea la base: `CREATE DATABASE school_system;`
+   - Ejecuta el esquema:
+     ```bash
+     cd backend
+     psql -U postgres -d school_system -f database/schema.sql
+     ```
+   - Si la base ya existía y le faltan columnas nuevas (ej. número de serie, id hardware):
+     ```bash
+     psql -U postgres -d school_system -f database/migrations/001_add_serial_hardware_to_computers.sql
+     ```
+
+2. **Backend**
+   ```bash
+   cd backend
+   npm install
+   ```
+   Crea `backend/.env`:
+   ```env
+   PORT=5051
+   NODE_ENV=development
+   DATABASE_URL=postgres://usuario:password@localhost:5432/school_system
+   JWT_SECRET=tu_super_secret_jwt_key_cambialo_en_produccion
+   FRONTEND_URL=http://localhost:4001
+   ```
+   (Sustituye `usuario` y `password` por los de tu PostgreSQL.)  
+   Inicia el servidor:
+   ```bash
+   npm run dev
+   ```
+   Crear admin de prueba (opcional):
+   ```bash
+   npm run seed:admin
+   ```
+
+3. **Frontend**
+   Igual que en la Opción A:
+   ```bash
+   cd frontend/school-app
+   npm install
+   ```
+   Crea `.env.local` con `NEXT_PUBLIC_API_URL=http://localhost:5051/api` e inicia:
+   ```bash
+   npm run dev
+   ```
+
+4. **Abrir el sistema**
+   - **http://localhost:4001** → login con las credenciales configuradas (ej. `admin@school.com` / `password123` si usaste el seed).
+
+---
+
+### Resumen de puertos y URLs
+
+| Servicio   | URL                      | Uso                    |
+|-----------|---------------------------|------------------------|
+| Frontend  | http://localhost:4001     | Interfaz web (Next.js) |
+| Backend   | http://localhost:5051     | API REST               |
+| Health    | http://localhost:5051/health | Comprobar que el API responde |
+| API Docs  | http://localhost:5051/api-docs | Swagger UI (solo en desarrollo) |
+
+---
+
+### Comandos útiles
+
+| Acción              | Dónde              | Comando        |
+|---------------------|--------------------|----------------|
+| Iniciar backend     | `backend/`         | `npm run dev`  |
+| Iniciar frontend    | `frontend/school-app/` | `npm run dev` |
+| Ejecutar esquema DB | desde `backend/`   | `psql -U postgres -d school_system -f database/schema.sql` |
+| Aplicar migraciones | desde `backend/`   | `npm run db:migrate:run` |
+| Crear admin (seed)  | `backend/`         | `npm run seed:admin` |
+| Tests backend       | desde `backend/`   | `npm test` |
+
+---
+
+## 🚀 Instalación (detalle)
 
 ### 1. Clonar el repositorio
 ```bash
@@ -116,26 +270,28 @@ npm install
 ```
 
 #### Crear archivo .env:
-```bash
-# Configuración del servidor
-PORT=5000
+```env
+# Configuración del servidor (el frontend espera el API en 5051)
+PORT=5051
 NODE_ENV=development
 
-# Configuración de base de datos PostgreSQL
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=school_system
-DB_USER=postgres
-DB_PASSWORD=tu_password
+# Base de datos: usa DATABASE_URL o las variables por separado
+DATABASE_URL=postgres://postgres:tu_password@localhost:5432/school_system
+# Opcional si no usas DATABASE_URL:
+# DB_HOST=localhost
+# DB_PORT=5432
+# DB_NAME=school_system
+# DB_USER=postgres
+# DB_PASSWORD=tu_password
 
-# Configuración JWT
+# JWT (cambiar en producción)
 JWT_SECRET=tu_super_secret_jwt_key_aqui_cambialo_en_produccion
 
-# Configuración del frontend
-FRONTEND_URL=http://localhost:3000
+# Origen permitido para CORS (debe coincidir con la URL del frontend)
+FRONTEND_URL=http://localhost:4001
 ```
 
-Nota (producción): establece `FRONTEND_URL` al dominio real del frontend, por ejemplo `https://app.midominio.com`, para que CORS permita el origen correcto.
+Nota (producción): establece `FRONTEND_URL` al dominio real del frontend (ej. `https://app.midominio.com`) para que CORS permita el origen correcto.
 
 #### Iniciar servidor de desarrollo:
 ```bash
@@ -150,18 +306,19 @@ cd frontend/school-app
 npm install
 ```
 
-#### Variables de entorno (opcional pero recomendado)
+#### Variables de entorno (recomendado)
 Crea un archivo `.env.local` en `frontend/school-app/` con:
 
 ```env
-# URL del backend (ajusta si es diferente)
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
+# URL del backend (puerto 5051 por defecto)
+NEXT_PUBLIC_API_URL=http://localhost:5051/api
 ```
 
 #### Iniciar aplicación:
 ```bash
 npm run dev
 ```
+La aplicación se abrirá en **http://localhost:4001** (puerto por defecto del script `dev`).
 
 ## 🔑 Credenciales de Prueba
 
@@ -176,8 +333,8 @@ El sistema incluye usuarios de prueba preconfigurados:
 ## 📱 Uso del Sistema
 
 ### 🔐 Inicio de Sesión
-1. Ve a `http://localhost:3000`
-2. Usa las credenciales de prueba
+1. Ve a **http://localhost:4001** (frontend)
+2. Usa las credenciales de prueba (tabla anterior)
 3. El sistema te redirigirá automáticamente al dashboard
 
 ### 👨‍💼 Panel de Administrador
@@ -332,11 +489,11 @@ npm install
 
 ### Error de puertos
 ```bash
-# Verificar puertos en uso
-lsof -i :3000
-lsof -i :5000
+# Verificar puertos en uso (frontend 4001, backend 5051)
+lsof -i :4001
+lsof -i :5051
 
-# Cambiar puertos en .env si es necesario
+# Cambiar PORT en backend/.env y NEXT_PUBLIC_API_URL en frontend si es necesario
 ```
 
 ## ✅ Funcionalidades Completadas

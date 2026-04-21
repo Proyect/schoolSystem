@@ -86,6 +86,34 @@ const logAuditEvent = async (req, action, statusCode) => {
   }
 };
 
+/**
+ * Registra un evento de auditoría desde el request (para login u otros sin req.user).
+ * @param {object} req - Request de Express
+ * @param {string} action - Ej: 'login_success', 'login_failure'
+ * @param {number} statusCode - Código HTTP
+ * @param {object} [options] - { userId, details }
+ */
+const logAuditFromRequest = async (req, action, statusCode, options = {}) => {
+  const { userId = null, details = null } = options;
+  try {
+    const ip_address = req.ip || req.connection?.remoteAddress;
+    const user_agent = req.get('User-Agent');
+    const resource_id = null;
+    setImmediate(async () => {
+      try {
+        await pool.query(`
+          INSERT INTO audit_logs (user_id, action, ip_address, user_agent, resource_id, status_code, details, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        `, [userId, action, ip_address, user_agent, resource_id, statusCode, details ? JSON.stringify(details) : null]);
+      } catch (dbError) {
+        console.error('Error saving audit log:', dbError);
+      }
+    });
+  } catch (error) {
+    console.error('Error in logAuditFromRequest:', error);
+  }
+};
+
 // Cache para requests frecuentes
 const requestCache = new Map();
 const REQUEST_CACHE_TTL = 10000; // 10 segundos
@@ -286,6 +314,7 @@ const sanitizeInput = (req, res, next) => {
 
 module.exports = {
   auditLogger,
+  logAuditFromRequest,
   requestLogger,
   securityMonitor,
   sanitizeInput

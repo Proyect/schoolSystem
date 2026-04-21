@@ -1,0 +1,17 @@
+{
+  "name": "school-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema escolar - gestión de computadoras",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "start": "npm run dev",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend/school-app",
+    "test": "npm run test --prefix backend",
+    "test:backend": "npm run test --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

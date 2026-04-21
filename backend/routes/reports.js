@@ -1,6 +1,7 @@
 const express = require("express");
 const { pool } = require("../db");
 const { auth, checkRole } = require("../middleware/auth");
+const logger = require("../lib/logger");
 
 const router = express.Router();
 
@@ -15,7 +16,8 @@ router.get("/computers", auth, checkRole(['admin', 'teacher']), async (req, res)
                 COUNT(*) as total_computers,
                 COUNT(CASE WHEN status = 'available' THEN 1 END) as available,
                 COUNT(CASE WHEN status = 'in_use' THEN 1 END) as in_use,
-                COUNT(CASE WHEN status = 'maintenance' THEN 1 END) as maintenance
+                COUNT(CASE WHEN status = 'maintenance' THEN 1 END) as maintenance,
+                COUNT(CASE WHEN status = 'out_of_service' THEN 1 END) as out_of_service
             FROM computers
         `);
         
@@ -94,7 +96,7 @@ router.get("/computers", auth, checkRole(['admin', 'teacher']), async (req, res)
             hourly_usage: hourlyUsage.rows
         });
     } catch (error) {
-        console.error('Error generando reporte de computadoras:', error);
+        logger.error({ msg: 'Error generando reporte de computadoras', err: error.message });
         res.status(500).json({ error: "Error interno del servidor" });
     }
 });
@@ -187,7 +189,7 @@ router.get("/reservations", auth, checkRole(['admin', 'teacher']), async (req, r
             daily_reservations: dailyReservations.rows
         });
     } catch (error) {
-        console.error('Error generando reporte de reservas:', error);
+        logger.error({ msg: 'Error generando reporte de reservas', err: error.message });
         res.status(500).json({ error: "Error interno del servidor" });
     }
 });
@@ -257,7 +259,7 @@ router.get("/users", auth, checkRole(['admin']), async (req, res) => {
             monthly_registrations: monthlyRegistrations.rows
         });
     } catch (error) {
-        console.error('Error generando reporte de usuarios:', error);
+        logger.error({ msg: 'Error generando reporte de usuarios', err: error.message });
         res.status(500).json({ error: "Error interno del servidor" });
     }
 });
@@ -326,7 +328,7 @@ router.get("/dashboard", auth, checkRole(['admin', 'teacher']), async (req, res)
             generated_at: new Date().toISOString()
         });
     } catch (error) {
-        console.error('Error generando dashboard:', error);
+        logger.error({ msg: 'Error generando dashboard', err: error.message });
         res.status(500).json({ error: "Error interno del servidor" });
     }
 });
@@ -455,7 +457,7 @@ router.get("/export/:type", auth, checkRole(['admin', 'teacher']), async (req, r
             count: result.rowCount
         });
     } catch (error) {
-        console.error('Error exportando datos:', error);
+        logger.error({ msg: 'Error exportando datos', err: error.message });
         res.status(500).json({ error: "Error interno del servidor" });
     }
 });

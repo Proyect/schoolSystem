@@ -2,27 +2,30 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { pool } = require("../db");
-const { validateLogin, validateQuery } = require("../middleware/validation");
+const { validateLogin } = require("../middleware/validation");
+const { logAuditFromRequest } = require("../middleware/logging");
+const logger = require("../lib/logger");
 
 const router = express.Router();
 
-// Login optimizado con manejo de errores
+// Login optimizado con manejo de errores y auditoría
 router.post("/login", validateLogin, async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Consulta optimizada - solo seleccionar campos necesarios
         const user = await pool.query(
             "SELECT id, email, password, role FROM users WHERE email = $1",
             [email.toLowerCase()]
         );
 
         if (user.rowCount === 0) {
+            await logAuditFromRequest(req, "login_failure", 400, { details: { reason: "user_not_found", email } });
             return res.status(400).json({ error: "Usuario no encontrado" });
         }
 
         const validPassword = await bcrypt.compare(password, user.rows[0].password);
         if (!validPassword) {
+            await logAuditFromRequest(req, "login_failure", 400, { details: { reason: "invalid_password", email } });
             return res.status(400).json({ error: "Contraseña incorrecta" });
         }
 
@@ -36,6 +39,8 @@ router.post("/login", validateLogin, async (req, res) => {
             { expiresIn: "24h" }
         );
 
+        await logAuditFromRequest(req, "login_success", 200, { userId: user.rows[0].id });
+
         res.json({ 
             token,
             user: {
@@ -45,7 +50,7 @@ router.post("/login", validateLogin, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error en login:', error);
+        logger.error({ msg: "Error en login", err: error.message });
         res.status(500).json({ error: "Error interno del servidor" });
     }
 });

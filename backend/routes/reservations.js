@@ -261,17 +261,22 @@ router.delete("/:id", auth, checkRole(['admin']), validateParams, auditLogger('D
 });
 
 // Obtener horarios disponibles para una computadora en una fecha
-router.get("/computers/:computer_id/availability", auth, validateParams, async (req, res) => {
+router.get("/computers/:computer_id/availability", auth, async (req, res) => {
     try {
         const { computer_id } = req.params;
         const { date } = req.query;
+        
+        const computerIdNum = parseInt(computer_id, 10);
+        if (isNaN(computerIdNum) || computerIdNum < 1) {
+            return res.status(400).json({ error: "ID de computadora inválido" });
+        }
         
         if (!date) {
             return res.status(400).json({ error: "Fecha requerida" });
         }
         
         // Verificar si la computadora existe
-        const computer = await pool.query("SELECT * FROM computers WHERE id = $1", [computer_id]);
+        const computer = await pool.query("SELECT * FROM computers WHERE id = $1", [computerIdNum]);
         
         if (computer.rowCount === 0) {
             return res.status(404).json({ error: "Computadora no encontrada" });
@@ -285,7 +290,7 @@ router.get("/computers/:computer_id/availability", auth, validateParams, async (
             AND DATE(start_time) = $2 
             AND status = 'active'
             ORDER BY start_time
-        `, [computer_id, date]);
+        `, [computerIdNum, date]);
         
         res.json({
             computer: computer.rows[0],

@@ -10,12 +10,14 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-  -- Tabla de computadoras
+  -- Tabla de computadoras/notebooks (status: available, in_use, maintenance, out_of_service)
   CREATE TABLE computers (
     id SERIAL PRIMARY KEY,
     code VARCHAR(50) UNIQUE NOT NULL,
     description TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'available',
+    serial_number VARCHAR(100),
+    hardware_id VARCHAR(100),
+    status VARCHAR(30) NOT NULL DEFAULT 'available',
     created_by INTEGER REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -36,6 +38,8 @@ CREATE TABLE reservations (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_computers_code ON computers(code);
+CREATE INDEX idx_computers_serial_number ON computers(serial_number);
+CREATE INDEX idx_computers_hardware_id ON computers(hardware_id);
 CREATE INDEX idx_computers_status ON computers(status);
 CREATE INDEX idx_computers_created_by ON computers(created_by);
 CREATE INDEX idx_reservations_computer_id ON reservations(computer_id);
@@ -63,11 +67,12 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+-- EXECUTE PROCEDURE compatible con PostgreSQL < 11
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TRIGGER update_computers_updated_at BEFORE UPDATE ON computers
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 -- Insertar datos de ejemplo
 INSERT INTO users (email, password, role, first_name, last_name) VALUES
@@ -158,7 +163,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-INSERT INTO computers (code, description, created_by) VALUES
-('PC001', 'Computadora de laboratorio 1', 1),
-('PC002', 'Computadora de laboratorio 2', 1),
-('PC003', 'Computadora de laboratorio 3', 1); 
+INSERT INTO computers (code, description, serial_number, hardware_id, created_by, status) VALUES
+('PC001', 'Computadora de laboratorio 1', 'SN-PC001-2024', 'HW-001', 1, 'available'),
+('PC002', 'Computadora de laboratorio 2', 'SN-PC002-2024', 'HW-002', 1, 'available'),
+('PC003', 'Computadora de laboratorio 3', 'SN-PC003-2024', 'HW-003', 1, 'available'); 
